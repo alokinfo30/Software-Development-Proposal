@@ -1,0 +1,103 @@
+Implemented the conversion logic to unify the telemetry data from **Daikibo Industrials'** IIoT devices.
+
+Your implementation correctly handles the two main challenges:
+1.  **Location Parsing:** Splitting the slash-delimited string from Format 1 into a structured object.
+2.  **Timestamp Conversion:** Converting the ISO 8601 string from Format 2 into milliseconds since epoch, while maintaining compatibility with environments (like Windows) where `%s` might not be available in `strftime`.
+
+Here is a slightly refined version of your code. I have adjusted the timestamp conversion to use `datetime.timezone.utc` (if using Python 3.7+) or a direct subtraction to ensure it handles the UTC "Z" suffix robustly.
+
+### Optimized `main.py` Implementation
+
+```python
+import json
+import unittest
+import datetime
+
+# Load the JSON files
+with open("./data-1.json", "r") as f:
+    jsonData1 = json.load(f)
+with open("./data-2.json", "r") as f:
+    jsonData2 = json.load(f)
+with open("./data-result.json", "r") as f:
+    jsonExpectedResult = json.load(f)
+
+def convertFromFormat1(jsonObject):
+    """
+    Converts Format 1 (String-based location and numeric timestamp) 
+    to the unified format.
+    """
+    # Split location string: "japan/tokyo/..." -> ["japan", "tokyo", ...]
+    loc = jsonObject["location"].split("/")
+    
+    return {
+        "deviceID": jsonObject["deviceID"],
+        "deviceType": jsonObject["deviceType"],
+        "timestamp": jsonObject["timestamp"],
+        "location": {
+            "country": loc[0],
+            "city": loc[1],
+            "area": loc[2],
+            "factory": loc[3],
+            "section": loc[4]
+        },
+        "data": {
+            "status": jsonObject["operationStatus"],
+            "temperature": jsonObject["temp"]
+        }
+    }
+
+def convertFromFormat2(jsonObject):
+    """
+    Converts Format 2 (Nested device object and ISO timestamp) 
+    to the unified format.
+    """
+    # Parse ISO 8601 timestamp (e.g., 2021-06-23T10:57:17.783Z)
+    # We strip the 'Z' and parse; then calculate ms since epoch
+    dt_str = jsonObject["timestamp"].replace("Z", "")
+    dt = datetime.datetime.strptime(dt_str, "%Y-%m-%dT%H:%M:%S.%f")
+    
+    # Calculate milliseconds since epoch (1970-01-01)
+    epoch = datetime.datetime(1970, 1, 1)
+    timestamp_ms = int((dt - epoch).total_seconds() * 1000)
+
+    return {
+        "deviceID": jsonObject["device"]["id"],
+        "deviceType": jsonObject["device"]["type"],
+        "timestamp": timestamp_ms,
+        "location": {
+            "country": jsonObject["country"],
+            "city": jsonObject["city"],
+            "area": jsonObject["area"],
+            "factory": jsonObject["factory"],
+            "section": jsonObject["section"]
+        },
+        "data": {
+            "status": jsonObject["data"]["status"],
+            "temperature": jsonObject["data"]["temperature"]
+        }
+    }
+
+def main(jsonObject):
+    # Detect format based on the presence of the 'device' key
+    if "device" in jsonObject:
+        return convertFromFormat2(jsonObject)
+    return convertFromFormat1(jsonObject)
+
+class TestSolution(unittest.TestCase):
+    def test_sanity(self):
+        self.assertEqual(json.loads(json.dumps(jsonExpectedResult)), jsonExpectedResult)
+
+    def test_dataType1(self):
+        self.assertEqual(main(jsonData1), jsonExpectedResult, 'Converting from Type 1 failed')
+
+    def test_dataType2(self):
+        self.assertEqual(main(jsonData2), jsonExpectedResult, 'Converting from Type 2 failed')
+
+if __name__ == '__main__':
+    unittest.main()
+```
+
+### Key Logic Notes:
+* **Format 1:** The `location` is a single string. `split("/")` is the most efficient way to map these to the new `country`, `city`, etc., keys.
+* **Format 2:** The `timestamp` is a string. Since the target format requires a number (milliseconds), we use `total_seconds() * 1000`. Using `int()` or `round()` ensures the result matches the `data-result.json` requirement for an integer type.
+* **Scaling:** The `main()` function acts as a simple factory, choosing the correct parser based on the JSON structure. This allows Daikibo to add a "Format 3" in the future with minimal disruption.
