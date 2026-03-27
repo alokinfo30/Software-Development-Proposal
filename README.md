@@ -3,6 +3,7 @@
 Scope
 
 Here are the main characteristics of the project:
+
 •	A private dashboard with health status of the 9 telemtry-enabled machines in each of Daikibo's 4 factories.
 •	Access to the page happens only within Daikibo’s Intranet/VPN.
 •	Authentication is synced to internal authentication server (users don't need to create an account). 
