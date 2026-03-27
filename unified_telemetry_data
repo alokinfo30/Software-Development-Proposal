@@ -101,3 +101,115 @@ if __name__ == '__main__':
 * **Format 1:** The `location` is a single string. `split("/")` is the most efficient way to map these to the new `country`, `city`, etc., keys.
 * **Format 2:** The `timestamp` is a string. Since the target format requires a number (milliseconds), we use `total_seconds() * 1000`. Using `int()` or `round()` ensures the result matches the `data-result.json` requirement for an integer type.
 * **Scaling:** The `main()` function acts as a simple factory, choosing the correct parser based on the JSON structure. This allows Daikibo to add a "Format 3" in the future with minimal disruption.
+
+
+
+
+
+
+
+
+
+
+
+To ensure that the automated unit tests pass successfully and that the telemetry data is unified into the correct format (especially the conversion of the ISO 8601 timestamp to milliseconds since epoch), here is the completed implementation for your `main.py` file.
+
+### Completed `main.py` Implementation
+
+```python
+import json, unittest, datetime
+
+# Use the open function to read the three json files
+with open("./data-1.json","r") as f:
+    jsonData1 = json.load(f)
+with open("./data-2.json","r") as f:
+    jsonData2 = json.load(f)
+with open("./data-result.json","r") as f:
+    jsonExpectedResult = json.load(f)
+
+# convert json data from format 1 to the expected format
+def convertFromFormat1 (jsonObject):
+    # IMPLEMENT: Conversion From Type 1
+    # Split the slash-separated location string into components
+    locationParts = jsonObject["location"].split("/")
+    
+    result = {
+        'deviceID': jsonObject['deviceID'],
+        'deviceType': jsonObject['deviceType'],
+        'timestamp': jsonObject['timestamp'],
+        'location': {
+            'country': locationParts[0],
+            'city': locationParts[1],
+            'area': locationParts[2],
+            'factory': locationParts[3],
+            'section': locationParts[4]
+        },
+        'data': {
+            'status': jsonObject['operationStatus'],
+            'temperature': jsonObject['temp']
+        }
+    }
+    return result
+
+# convert json data from format 2 to the expected format
+def convertFromFormat2 (jsonObject):
+    # IMPLEMENT: Conversion From Type 2
+    # Parse the ISO 8601 timestamp string
+    # We strip the 'Z' (UTC indicator) to parse it correctly using strptime
+    clean_timestamp = jsonObject['timestamp'].replace("Z", "")
+    dt = datetime.datetime.strptime(clean_timestamp, '%Y-%m-%dT%H:%M:%S.%f')
+    
+    # Convert to milliseconds since epoch (1970-01-01)
+    epoch = datetime.datetime(1970, 1, 1)
+    timestamp_ms = int((dt - epoch).total_seconds() * 1000)
+
+    result = {
+        'deviceID': jsonObject['device']['id'],
+        'deviceType': jsonObject['device']['type'],
+        'timestamp': timestamp_ms,
+        'location': {
+            'country': jsonObject['country'],
+            'city': jsonObject['city'],
+            'area': jsonObject['area'],
+            'factory': jsonObject['factory'],
+            'section': jsonObject['section']
+        },
+        'data': {
+            'status': jsonObject['data']['status'],
+            'temperature': jsonObject['data']['temperature']
+        }
+    }
+    return result
+
+def main (jsonObject):
+    result = {}
+    if (jsonObject.get('device') == None):
+        result = convertFromFormat1(jsonObject)
+    else:
+        result = convertFromFormat2(jsonObject)
+    return result
+
+# Test cases using unittest module
+class TestSolution(unittest.TestCase):
+    def test_sanity(self):
+        result = json.loads(json.dumps(jsonExpectedResult))
+        self.assertEqual(result, jsonExpectedResult)
+
+    def test_dataType1(self):
+        result = main (jsonData1)
+        self.assertEqual(result, jsonExpectedResult, 'Converting from Type 1 failed')
+
+    def test_dataType2(self):
+        result = main (jsonData2)
+        self.assertEqual(result, jsonExpectedResult, 'Converting from Type 2 failed')
+
+if __name__ == '__main__':
+    unittest.main()
+```
+
+### Key Highlights of the Solution:
+1.  **Format 1 Location:** Used `.split("/")` to extract hierarchical location data from a single string.
+2.  **Format 2 Timestamp:** Used `datetime.datetime.strptime` to handle the ISO format. Since Python's older versions can sometimes struggle with the "Z" suffix on certain operating systems, stripping it and calculating the delta from the Unix Epoch (1970) is the most reliable way to get the **milliseconds** required by Daikibo's unified format.
+3.  **Data Mapping:** Ensured `operationStatus` and `temp` from Format 1 are correctly mapped to `status` and `temperature` in the final output to match `data-result.json`.
+
+You can now run `python main.py` in your terminal, and all unit tests should pass.
