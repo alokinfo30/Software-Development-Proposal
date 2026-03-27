@@ -32,3 +32,11 @@ status (Healthy, Warning, Critical) without requiring manual page refreshes
 •	The view is collapsible/expandable at a factory level, as well as device level (showing history of statuses)
 You can refer to the wireframe image located on the root for a visual reference. Please note this is not the final design, and it’s just a mock-up visual representation of the functionality. 
 
+
+Phase,Description,Estimated Hours
+Backend & Integration,"Authentication sync, API development, and telemetry stream integration.",120
+Frontend Development,Building the collapsible/expandable UI and real-time state management.,140
+Quality Assurance,"Unit testing, load testing for 36 simultaneous streams, and security audits.",60
+Deployment & UAT,Intranet environment setup and User Acceptance Testing.,40
+Total,,360 Hours
+
